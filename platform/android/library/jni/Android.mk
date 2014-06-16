@@ -1,6 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 BYPASS_SRC := ../../../../src/
-
+BYPASS_INCLUDE_PATH = /Users/dhko/lib/boost_1_55_0
 include $(CLEAR_VARS)
 
 LOCAL_MODULE	:= bypass
