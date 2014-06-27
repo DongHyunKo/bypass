@@ -548,17 +548,29 @@ char_codespan(struct buf *ob, struct render *rndr,
 
 
 /* char_escape • '\\' backslash escape */
+/*
+	orignal code isn't consider UNICODE or general charactor after backslash.
+	so I append to check logic for defined escape sequence.  
+	by DongHyunKo
+	*/
 static size_t
 char_escape(struct buf *ob, struct render *rndr,
 				char *data, size_t offset, size_t size) {
 	struct buf work = { 0, 0, 0, 0, 0 };
-	if (size > 1) {
-		if (rndr->make.normal_text) {
-			work.data = data + 1;
-			work.size = 1;
-			rndr->make.normal_text(ob, &work, rndr->make.opaque); }
-		else bufputc(ob, data[1]); }
-	return 2; }
+	if( data[1] == 'b' || data[1] == 'b' 
+		|| data[1] == 'f' || data[1] == 'n'
+		|| data[1] == 'r' || data[1] == 't' 
+		|| data[1] == 'v' || data[1] == '\\'
+		|| data[1] == '\'' || data[1] == '\"'
+		|| data[1] == '?' ) {
+		if (size > 1) {
+			if (rndr->make.normal_text) {
+				work.data = data + 1;
+				work.size = 1;
+				rndr->make.normal_text(ob, &work, rndr->make.opaque); }
+			else bufputc(ob, data[1]); }
+		return 2; }
+	return 0; }
 
 
 /* char_entity • '&' escaped when it doesn't belong to an entity */
@@ -1133,9 +1145,19 @@ parse_listitem(struct buf *ob, struct render *rndr,
 		if (data[beg] == '\t') { i = 1; pre = 8; }
 
 		/* checking for a new item */
-		if ((prefix_uli(data + beg + i, end - beg - i)
-			&& !is_hrule(data + beg + i, end - beg - i))
-		||  prefix_oli(data + beg + i, end - beg - i)) {
+		/*
+		to distinguish BULLET LIST and NUMBERED LIST.
+		by DongHyunKo
+		*/
+		if ( prefix_uli(data + beg + i, end - beg - i)
+			&& !is_hrule(data + beg + i, end - beg - i)) {
+			if( (*flags & MKD_LIST_ORDERED) ) *flags |= MKD_LI_BLOCK;
+			if (in_empty) has_inside_empty = 1;
+			if (pre == orgpre) /* the following item must have */
+				break;             /* the same indentation */
+			if (!sublist) sublist = work->size; }
+		else if (prefix_oli(data + beg + i, end - beg - i)) {
+			if( !(*flags & MKD_LIST_ORDERED) ) *flags |= MKD_LI_BLOCK;
 			if (in_empty) has_inside_empty = 1;
 			if (pre == orgpre) /* the following item must have */
 				break;             /* the same indentation */
@@ -1162,8 +1184,15 @@ parse_listitem(struct buf *ob, struct render *rndr,
 			parse_block(inter, rndr, work->data, sublist);
 			parse_block(inter, rndr, work->data + sublist,
 						work->size - sublist); }
-		else
-			parse_block(inter, rndr, work->data, work->size); }
+		else {
+			parse_block(inter, rndr, work->data, work->size); 
+			/*
+			if newline has one among list item, every backword list item become each paragraph. so i changed this code. 
+			after parsing inner block, the list will be new list. 
+			by DongHyunKo
+			*/
+			*flags ^= MKD_LI_BLOCK;
+			*flags |= MKD_LI_END; } }
 	else {
 		/* intermediate render of inline li */
 		if (sublist && sublist < work->size) {

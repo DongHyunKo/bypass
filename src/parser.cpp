@@ -140,6 +140,15 @@ namespace Bypass {
 			snprintf(levelStr, 2, "%d", extra);
 			block.addAttribute("level", levelStr);
 		}
+		/*
+		add 'ordered' attribute, because host application need to distingusih NUMBERED LIST.
+		by DongHyunKo
+		*/
+		if( (type == LIST || type == LIST_ITEM) && (extra & MKD_LIST_ORDERED)) {
+			char orderedStr[2];
+			snprintf(orderedStr, 2, "%d", MKD_LIST_ORDERED );
+			block.addAttribute("ordered", orderedStr);		
+		}
 
 		std::string textString(text->data, text->data + text->size);
 		std::vector<std::string> strs;
